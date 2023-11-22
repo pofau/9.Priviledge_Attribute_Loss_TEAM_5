@@ -2,7 +2,7 @@ import cv2
 from datasets import load_dataset
 
 dataset = load_dataset("Piro17/affectnethq")
-if dataset == null:
+if dataset == Null:
     print("erreur de chargement")
 else :
     print("le chargement est ok")
