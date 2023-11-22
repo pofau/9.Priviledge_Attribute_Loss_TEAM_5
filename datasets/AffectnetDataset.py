@@ -2,7 +2,10 @@ import cv2
 from datasets import load_dataset
 
 dataset = load_dataset("Piro17/affectnethq")
-print(dataset)
+if dataset == null:
+    print("erreur de chargement")
+else :
+    print("le chargement est ok")
 
 
 class AffectNetDatabase:
