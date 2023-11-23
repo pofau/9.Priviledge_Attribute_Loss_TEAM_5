@@ -1,36 +1,32 @@
-import cv2
+import torchvision.transforms as transforms
 from datasets import load_dataset
+from torch.utils.data import Dataset, DataLoader
 
-dataset = load_dataset("Piro17/affectnethq")
-if dataset == Null:
-    print("erreur de chargement")
-else :
-    print("le chargement est ok")
+class AffectNetHqDataset(Dataset):
+    def __init__(self, split='train', transform=None):
+        self.dataset = load_dataset("Piro17/affectnethq", split=split)
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        item = self.dataset[idx]
+        image = item['image']
+        label = item['label']
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
 
 
-class AffectNetDatabase:
-    def __init__(self, directory):
-        """
-        Initialise la base de données AffectNet.
+# Définir les transformations
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
 
-        :param directory: Chemin du répertoire contenant les images et les annotations.
-        """
-        self.directory = directory
-        self.images = []  # Liste pour stocker les chemins des images
-        self.annotations = []  # Liste pour stocker les annotations
-
-    def load_data(self):
-        """
-        Charge les données de la base de données depuis le répertoire spécifié.
-        """
-        return
-
-    def get_image(self, index):
-
-        image_path = self.images[index]
-        annotation = self.annotations[index]
-
-        image = cv2.imread(image_path)  # Lecture de l'image
-
-        return image, annotation
-
+# Créer le dataset et le dataloader
+affectnet_dataset = AffectNetHqDataset(transform=transform)
+data_loader = DataLoader(affectnet_dataset, batch_size=16, shuffle=False)
