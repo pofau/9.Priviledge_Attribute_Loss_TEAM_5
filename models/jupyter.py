@@ -1,10 +1,12 @@
 import torchvision.transforms as transforms
 from datasets import load_dataset
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset, random_split
+from PIL import Image
 
 class AffectNetHqDataset(Dataset):
-    def __init__(self, split='train', transform=None):
-        self.dataset = load_dataset("Piro17/affectnethq", split=split)
+    def __init__(self, dataset, transform=None):
+        # 'dataset' is now a subset of the original dataset
+        self.dataset = dataset
         self.transform = transform
 
     def __len__(self):
@@ -18,64 +20,65 @@ class AffectNetHqDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, label 
+        return image, label
 
+# Load the full dataset
+full_dataset = load_dataset("Piro17/affectnethq", split='train')
 
-# Définir les transformations
-transform = transforms.Compose([
+# Split the dataset into train and test subsets
+train_size = int(0.8 * len(full_dataset))
+test_size = len(full_dataset) - train_size
+train_subset, test_subset = random_split(full_dataset, [train_size, test_size])
+
+# Define transformations
+train_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomRotation((-10, 10)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+])
+
+test_transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
 ])
 
-# Créer le dataset et le dataloader
-affectnet_dataset = AffectNetHqDataset(transform=transform)
-data_loader = DataLoader(affectnet_dataset, batch_size=16, shuffle=False)
+# Create the dataset and dataloader using the subsets
+train_dataset = AffectNetHqDataset(Subset(full_dataset, train_subset.indices), transform=train_transform)
+test_dataset = AffectNetHqDataset(Subset(full_dataset, test_subset.indices), transform=test_transform)
 
-#%%
+train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
+
+import matplotlib.pyplot as plt
+import torchvision
+
+def show_tensor_image(tensor):
+    """Affiche une image tensorielle."""
+    image = tensor.numpy().transpose((1, 2, 0))  # Convertir le tensor en array numpy et ajuster les dimensions
+    plt.imshow(image)
+    plt.show()
+
+# Afficher la première image de l'ensemble d'entraînement
+first_train_image, _ = train_dataset[0]
+show_tensor_image(first_train_image)
+
+# Afficher la dernière image de l'ensemble d'entraînement
+last_train_image, _ = train_dataset[len(train_dataset) - 1]
+show_tensor_image(last_train_image)
+
+# Afficher la première image de l'ensemble de test
+first_test_image, _ = test_dataset[0]
+show_tensor_image(first_test_image)
+
+# Afficher la dernière image de l'ensemble de test
+last_test_image, _ = test_dataset[len(test_dataset) - 1]
+show_tensor_image(last_test_image)
 
 import torchvision.models as models
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-
-
-# Charger un modèle VGG16 pré-entraîné
-vgg16_model = models.vgg16(pretrained=True)
-
-# Adapter la dernière couche FC pour le nombre de classes dans AffectNet
-num_classes = 6  # AffectNet a 6 classes d'émotions
-vgg16_model.classifier[6] = nn.Linear(vgg16_model.classifier[6].in_features, num_classes)
-
-# Fonction de perte et optimiseur
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(vgg16_model.parameters(), lr=4e-5)
-
-# Boucle d'entraînement
-num_epochs = 75
-
-for epoch in range(num_epochs):
-    vgg16_model.train()
-    running_loss = 0.0
-
-    for images, labels in data_loader:
-        optimizer.zero_grad()
-        outputs = vgg16_model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-        running_loss += loss.item()
-
-    print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss / len(data_loader)}")
-#%%
-
-# modèle VGG16 pré-entraîné
-vgg16_model = models.vgg16(pretrained=True)
-
-# Adapte la dernière couche FC pour le nombre de classes dans AffectNet
-num_classes = 6  # AffectNet a 6 classes d'émotions
-vgg16_model.classifier[6] = nn.Linear(vgg16_model.classifier[6].in_features, num_classes)
-
+from torchsummary import summary
 
 class VGG16(nn.Module):
     def __init__(self):
@@ -132,14 +135,67 @@ class VGG16(nn.Module):
             nn.Linear(4096, 4096),
             nn.ReLU(),
             nn.Dropout(),
-            nn.Linear(4096, 1000),
+            nn.Linear(4096, 7),
             nn.Softmax(dim=1)
         )
 
     def forward(self, x):
         x = self.conv_layers(x)
+        x = torch.flatten(x, 1)  
         x = self.fc_layers(x)
         return x
 
 # Création du modèle VGG16
 vgg16 = VGG16()
+summary(vgg16, (3, 224, 224))
+
+from tqdm import tqdm
+from random import sample
+
+
+def adjust_learning_rate(optimizer, epoch, base_lr, max_epochs, power=1.0):
+    lr = base_lr * (1 - epoch / max_epochs) ** power
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+        
+# Fonction de perte et optimiseur
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(vgg16.parameters(), lr=4e-5)
+
+
+# Boucle d'entraînement
+num_epochs = 75  # Définir le nombre d'époques
+
+train_losses = []
+train_accuracies = []
+
+batch_size = 16
+
+
+for epoch in range(num_epochs):
+    adjust_learning_rate(optimizer, epoch, base_lr=4e-5, max_epochs=num_epochs)
+    vgg16.train()
+    running_loss = 0.0
+    correct = 0
+    total = 0
+    
+    for images, labels in train_loader:
+        optimizer.zero_grad()
+        outputs = vgg16(images)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+
+        running_loss += loss.item()
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+    
+
+    epoch_loss = running_loss / total  # Assurez-vous que ce calcul est correct
+    epoch_accuracy = 100 * correct / total
+
+    train_losses.append(epoch_loss)
+    train_accuracies.append(epoch_accuracy)
+
+    print(f"Epoch {epoch+1}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.2f}%")
