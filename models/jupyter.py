@@ -1,11 +1,15 @@
+import torchvision.models as models
+import torch
+import torch.nn as nn
 import torchvision.transforms as transforms
 from datasets import load_dataset
 from torch.utils.data import Dataset, DataLoader, Subset, random_split
 from PIL import Image
-
+from gradcam import GradCAM  # Assurez-vous d'avoir le module GradCAM approprié installé
+import numpy as np 
 class AffectNetHqDataset(Dataset):
+    
     def __init__(self, dataset, transform=None):
-        # 'dataset' is now a subset of the original dataset
         self.dataset = dataset
         self.transform = transform
 
@@ -26,7 +30,7 @@ class AffectNetHqDataset(Dataset):
 full_dataset = load_dataset("Piro17/affectnethq", split='train')
 
 # Split the dataset into train and test subsets
-train_size = int(0.8 * len(full_dataset))
+train_size = int(0.01 * len(full_dataset))
 test_size = len(full_dataset) - train_size
 train_subset, test_subset = random_split(full_dataset, [train_size, test_size])
 
@@ -50,35 +54,8 @@ test_dataset = AffectNetHqDataset(Subset(full_dataset, test_subset.indices), tra
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-import matplotlib.pyplot as plt
-import torchvision
-
-def show_tensor_image(tensor):
-    """Affiche une image tensorielle."""
-    image = tensor.numpy().transpose((1, 2, 0))  # Convertir le tensor en array numpy et ajuster les dimensions
-    plt.imshow(image)
-    plt.show()
-
-# Afficher la première image de l'ensemble d'entraînement
-first_train_image, _ = train_dataset[0]
-show_tensor_image(first_train_image)
-
-# Afficher la dernière image de l'ensemble d'entraînement
-last_train_image, _ = train_dataset[len(train_dataset) - 1]
-show_tensor_image(last_train_image)
-
-# Afficher la première image de l'ensemble de test
-first_test_image, _ = test_dataset[0]
-show_tensor_image(first_test_image)
-
-# Afficher la dernière image de l'ensemble de test
-last_test_image, _ = test_dataset[len(test_dataset) - 1]
-show_tensor_image(last_test_image)
-
-import torchvision.models as models
-import torch
 import torch.nn as nn
-from torchsummary import summary
+import matplotlib.pyplot as plt
 
 class VGG16(nn.Module):
     def __init__(self):
@@ -87,128 +64,173 @@ class VGG16(nn.Module):
         self.conv_layers = nn.Sequential(
             # Premier bloc
             nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.BatchNorm2d(64),  
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.BatchNorm2d(64),  
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Deuxième bloc
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.BatchNorm2d(128),  
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.BatchNorm2d(128),  
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Troisième bloc
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.BatchNorm2d(256),  
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),  
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),  # Ajout de BatchNorm
-            nn.ReLU(True),
-            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Quatrième bloc
             nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Cinquième bloc
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
             nn.BatchNorm2d(512),  # Ajout de BatchNorm
-            nn.ReLU(True),
+            nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
-
+        self.last_conv_layer = self.conv_layers[-1]
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc_layers = nn.Sequential(
-            # Couches entièrement connectées
-            nn.Linear(512 * 7 * 7, 4096),
-            nn.ReLU(True),
-            nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.ReLU(True),
-            nn.Dropout(),
-            nn.Linear(4096, 7),
+            nn.Linear(512, 1024),  
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 7),
             nn.Softmax(dim=1)
         )
 
+        # Ajout d'un attribut pour stocker les gradients de la dernière couche de convolution
+        self.last_conv_gradients = None
+
     def forward(self, x):
         x = self.conv_layers(x)
-        x = torch.flatten(x, 1)  
+        x = self.global_avg_pool(x)
+        x = torch.flatten(x, 1)
         x = self.fc_layers(x)
         return x
 
+    def capture_last_conv_gradients(self):
+        return self.last_conv_layer
+
+
 # Création du modèle VGG16
 vgg16 = VGG16()
-summary(vgg16, (3, 224, 224))
+print(vgg16)
 
+# Récupération de la dernière couche du modèle VGG16
+target_layer = vgg16.conv_layers[-1]  # Dernière couche de convolutions
+
+# Assurez-vous que toutes les dépendances sont importées
+import time
+import torch
+from torch.utils.data import DataLoader
 from tqdm import tqdm
-from random import sample
 
-
-def adjust_learning_rate(optimizer, epoch, base_lr, max_epochs, power=1.0):
-    lr = base_lr * (1 - epoch / max_epochs) ** power
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-        
-# Fonction de perte et optimiseur
-criterion = nn.CrossEntropyLoss()
+# Paramètres
+num_epochs = 5  # Normalement 75 epochs
 optimizer = torch.optim.Adam(vgg16.parameters(), lr=4e-5)
-
-
-# Boucle d'entraînement
-num_epochs = 75  # Définir le nombre d'époques
+criterion = nn.CrossEntropyLoss()
+DEVICE = "cpu"  # "cuda" ou "cpu"
+max_iterations = 40000
+train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
 train_losses = []
 train_accuracies = []
 
-batch_size = 16
-
-
+# Entraînement
 for epoch in range(num_epochs):
-    adjust_learning_rate(optimizer, epoch, base_lr=4e-5, max_epochs=num_epochs)
+    start = time.perf_counter()
     vgg16.train()
     running_loss = 0.0
-    correct = 0
-    total = 0
-    
-    for images, labels in train_loader:
+    correct_pred = 0
+    total_samples = 0
+
+    for i, (data, targets) in enumerate(tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}", leave=False)):
+        data, targets = data.to(DEVICE), targets.to(DEVICE)
+        data.requires_grad = True  # Enable gradient tracking for input
+
+        # Forward pass
+        outputs = vgg16(data)
+
+        # Calcul de la perte standard
+        standard_loss = criterion(outputs, targets)
         optimizer.zero_grad()
-        outputs = vgg16(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
+
+        # Ajoutez le hook à la dernière couche de convolution
+        last_conv_layer = vgg16.last_conv_layer
+        hook = last_conv_layer.register_forward_hook(lambda m, inp, out: print(out))  # Imprimez la sortie
+        output = last_conv_layer(data)  # Passez les données par la dernière couche de convolution
+        
+        # Calcul du grad*input
+        grad_input = output  # Gradients de la dernière couche de convolution
+
+        input_grad = torch.nn.functional.interpolate(input_grad, size=grad_input.shape[2:], mode='bilinear', align_corners=False)
+
+        result = grad_input * input_grad
+        
+        # Convert the result tensor to a NumPy array
+        result_np = result[0].cpu().detach().numpy()
+
+        # Visualize each channel of the result as a separate image
+        for channel in result_np:
+            plt.imshow(channel, cmap='viridis')  # You can choose the cmap as needed
+            plt.title(f'Epoch {epoch + 1}, Iteration {i + 1}')
+            plt.show()
+
+
+        hook.remove()  # Désenregistrez le hook après utilisation
+
+        # Backward pass for standard loss
+        standard_loss.backward(retain_graph=True)  # Keep the computation graph for subsequent gradient computations
+        
+        # Zero gradients for the next iteration
+        optimizer.zero_grad()
+        
+        # Optimisation
         optimizer.step()
 
-        running_loss += loss.item()
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+        # Mise à jour des métriques
+        running_loss += standard_loss.item()
+        _, pred = torch.max(outputs, 1)
+        correct_pred += (pred == targets).sum().item()
+        total_samples += targets.size(0)
+
+        if i >= max_iterations:
+            break
     
+    # Affichage des statistiques après chaque époque
+    epoch_loss = running_loss / (i + 1)
+    epoch_accuracy = 100 * correct_pred / total_samples
+    end = time.perf_counter()
+    print(f'Epoch {epoch + 1}/{num_epochs}\tTrain loss: {epoch_loss:.4f}\tTrain accuracy: {epoch_accuracy:.2f}%')
+    print(f'Time: {end - start:.2f}s')
 
-    epoch_loss = running_loss / total  # Assurez-vous que ce calcul est correct
-    epoch_accuracy = 100 * correct / total
-
-    train_losses.append(epoch_loss)
-    train_accuracies.append(epoch_accuracy)
-
-    print(f"Epoch {epoch+1}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.2f}%")
+print('Finished training!')
