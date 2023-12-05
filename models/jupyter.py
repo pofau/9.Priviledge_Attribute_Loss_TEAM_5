@@ -149,14 +149,13 @@ target_layer = vgg16.conv_layers[-1]  # Dernière couche de convolutions
 # Assurez-vous que toutes les dépendances sont importées
 import time
 import torch
-import torch.optim as optim
-
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 # Paramètres
 num_epochs = 5  # Normalement 75 epochs
 optimizer = torch.optim.Adam(vgg16.parameters(), lr=4e-5)
+criterion = nn.CrossEntropyLoss()
 DEVICE = "cpu"  # "cuda" ou "cpu"
 max_iterations = 40000
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -164,13 +163,6 @@ test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
 train_losses = []
 train_accuracies = []
-
-# Paramètres
-num_epochs = 5
-optimizer = optim.Adam(vgg16.parameters(), lr=4e-5)
-criterion = nn.CrossEntropyLoss()
-DEVICE = "cpu"  # "cuda" ou "cpu"
-max_iterations = 40000
 
 # Entraînement
 for epoch in range(num_epochs):
@@ -189,48 +181,38 @@ for epoch in range(num_epochs):
 
         # Calcul de la perte standard
         standard_loss = criterion(outputs, targets)
-
         optimizer.zero_grad()
 
         # Ajoutez le hook à la dernière couche de convolution
         last_conv_layer = vgg16.last_conv_layer
-        hook = last_conv_layer.register_forward_hook(lambda m, inp, out: None)  # Créez une fonction vide pour le hook
+        hook = last_conv_layer.register_forward_hook(lambda m, inp, out: print(out))  # Imprimez la sortie
         output = last_conv_layer(data)  # Passez les données par la dernière couche de convolution
-
+        
         # Calcul du grad*input
-        grad_input = torch.abs(output)  # Gradients de la dernière couche de convolution
+        grad_input = output  # Gradients de la dernière couche de convolution
 
-        # Calculez grad_input en spécifiant également retain_graph=True
-        grad_input.backward(gradient=torch.ones_like(output), retain_graph=True)
+        input_grad = torch.nn.functional.interpolate(input_grad, size=grad_input.shape[2:], mode='bilinear', align_corners=False)
 
-        # Maintenant, grad_input contient les contributions de chaque pixel
-        grad_input = data.grad  # Obtenez les gradients de l'entrée par rapport à la sortie
+        result = grad_input * input_grad
+        
+        # Convert the result tensor to a NumPy array
+        result_np = result[0].cpu().detach().numpy()
 
-        # Visualisez grad_input (contributions) pour chaque image dans le batch
-        for j in range(data.size(0)):
-            input_image = data[j].cpu().detach().numpy().transpose((1, 2, 0))  # Convert image tensor to NumPy array
-            grad_input_image = grad_input[j].abs().cpu().detach().numpy().transpose((1, 2, 0))  # Convert grad_input tensor to NumPy array
-
-            # Affichez l'image d'entrée et les contributions
-            plt.figure(figsize=(8, 4))
-            plt.subplot(1, 2, 1)
-            plt.imshow(input_image)
-            plt.title("Input Image")
-
-            plt.subplot(1, 2, 2)
-            plt.imshow(grad_input_image.mean(axis=-1), cmap='viridis')
-            plt.title("Grad*Input (Contributions)")
-
+        # Visualize each channel of the result as a separate image
+        for channel in result_np:
+            plt.imshow(channel, cmap='viridis')  # You can choose the cmap as needed
+            plt.title(f'Epoch {epoch + 1}, Iteration {i + 1}')
             plt.show()
+
 
         hook.remove()  # Désenregistrez le hook après utilisation
 
         # Backward pass for standard loss
-        standard_loss.backward()  # Retirez retain_graph=True
-
+        standard_loss.backward(retain_graph=True)  # Keep the computation graph for subsequent gradient computations
+        
         # Zero gradients for the next iteration
         optimizer.zero_grad()
-
+        
         # Optimisation
         optimizer.step()
 
@@ -242,7 +224,7 @@ for epoch in range(num_epochs):
 
         if i >= max_iterations:
             break
-
+    
     # Affichage des statistiques après chaque époque
     epoch_loss = running_loss / (i + 1)
     epoch_accuracy = 100 * correct_pred / total_samples
@@ -251,5 +233,4 @@ for epoch in range(num_epochs):
     print(f'Time: {end - start:.2f}s')
 
 print('Finished training!')
-
 
