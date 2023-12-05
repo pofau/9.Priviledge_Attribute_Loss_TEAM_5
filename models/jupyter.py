@@ -87,53 +87,66 @@ class VGG16(nn.Module):
         self.conv_layers = nn.Sequential(
             # Premier bloc
             nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(64),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(64),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Deuxième bloc
             nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(128),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(128),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Troisième bloc
             nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(256),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(256),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(256),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Quatrième bloc
             nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Cinquième bloc
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
-            nn.ReLU(),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(True),
             nn.MaxPool2d(kernel_size=2, stride=2)
         )
 
         self.fc_layers = nn.Sequential(
             # Couches entièrement connectées
             nn.Linear(512 * 7 * 7, 4096),
-            nn.ReLU(),
+            nn.ReLU(True),
             nn.Dropout(),
             nn.Linear(4096, 4096),
-            nn.ReLU(),
+            nn.ReLU(True),
             nn.Dropout(),
             nn.Linear(4096, 7),
             nn.Softmax(dim=1)
