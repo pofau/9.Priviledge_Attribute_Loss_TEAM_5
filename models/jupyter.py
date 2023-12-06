@@ -6,8 +6,7 @@ from datasets import load_dataset
 from torch.utils.data import Dataset, DataLoader, Subset, random_split
 from PIL import Image
 from gradcam import GradCAM  # Assurez-vous d'avoir le module GradCAM approprié installé
-import numpy as np
-
+import numpy as np 
 class AffectNetHqDataset(Dataset):
     def __init__(self, dataset, transform=None):
         self.dataset = dataset
@@ -191,7 +190,7 @@ for epoch in range(num_epochs):
         
         # Calcul du grad*input
         grad_input = output  # Gradients de la dernière couche de convolution
-
+        input_grad = torch.autograd.grad(outputs=outputs, inputs=data, grad_outputs=torch.ones_like(outputs), retain_graph=True)[0]
         input_grad = torch.nn.functional.interpolate(input_grad, size=grad_input.shape[2:], mode='bilinear', align_corners=False)
 
         result = grad_input * input_grad

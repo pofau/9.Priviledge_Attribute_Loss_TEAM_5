@@ -1,120 +1,94 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torchvision import models
-from torch.utils.data import DataLoader
-from torchvision import transforms
-from torchvision.datasets import ImageFolder
-
-num_classes = 6  # AffectNet a 6 classes d'émotions
 class VGGFace(nn.Module):
-    def __init__(self, num_classes=6, pretrained=True, dropout_prob=0.6):
+    def __init__(self):
         super(VGGFace, self).__init__()
 
-        # Utilise le modèle VGG16 pré-entraîné
-        vgg16 = models.vgg16(pretrained=pretrained)
+        self.conv_layers = nn.Sequential(
+            # Premier bloc
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),  
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),  
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
 
-        # Supprime la dernière couche FC
-        vgg16 = nn.Sequential(*list(vgg16.children())[:-1])
+            # Deuxième bloc
+            nn.Conv2d(in_channels=64, out_channels=128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),  
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),  
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
 
-        # Freeze toutes les couches convolutionnelles
-        for param in vgg16.parameters():
-            param.requires_grad = False
+            # Troisième bloc
+            nn.Conv2d(in_channels=128, out_channels=256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),  
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),  
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),  # Ajout de BatchNorm
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
 
-        # Ajoute une nouvelle couche FC pour le nombre de classes dans AffectNet et RAF-DB
-        self.features = vgg16
-        self.fc6 = nn.Linear(512, 4096)
-        self.relu6 = nn.ReLU(inplace=True)
-        self.dropout6 = nn.Dropout(p=dropout_prob)
-        self.fc7 = nn.Linear(4096, 4096)
-        self.relu7 = nn.ReLU(inplace=True)
-        self.dropout7 = nn.Dropout(p=dropout_prob)
-        self.fc8 = nn.Linear(4096, num_classes)
+            # Quatrième bloc
+            nn.Conv2d(in_channels=256, out_channels=512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            # Cinquième bloc
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels=512, out_channels=512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),  # Ajout de BatchNorm
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
+        self.last_conv_layer = self.conv_layers[-1]
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc_layers = nn.Sequential(
+            nn.Linear(512, 1024),  
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 7),
+            nn.Softmax(dim=1)
+        )
+
+        self.last_conv_layer = self.conv_layers[-1]
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc_layers = nn.Sequential(
+            nn.Linear(512, 4096),  
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(4096, 4096),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(4096, 7),  # Assuming there are 7 classes in the RAF-DB dataset
+            nn.Softmax(dim=1)
+        )
+
+        # Attribute to store the gradients of the last convolutional layer
+        self.last_conv_gradients = None
 
     def forward(self, x):
-        x = self.features(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc6(x)
-        x = self.relu6(x)
-        x = self.dropout6(x)
-        x = self.fc7(x)
-        x = self.relu7(x)
-        x = self.dropout7(x)
-        x = self.fc8(x)
+        x = self.conv_layers(x)
+        x = self.global_avg_pool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc_layers(x)
         return x
 
-
-# Definition du modèle
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model = VGGFace(num_classes=num_classes).to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-
-# Definition des transformations pour la normalisation des images
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),  # Modèle VGGFace prend en entrée des images de taille 224x224
-    transforms.ToTensor(),
-])
-
-# Definition des datasets
-train_dataset = ImageFolder(root='path_to_your_dataset/train', transform=transform)
-val_dataset = ImageFolder(root='path_to_your_dataset/validation', transform=transform)
-
-# Define batch size
-batch_size = 32
-
-# Create DataLoader
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=4)
-
-# Now, you can use train_loader and val_loader in your training loop
-
-# Boucle d'entraînement
-num_epochs = 10
-
-for epoch in range(num_epochs):
-    model.train()  # Met le modèle en mode entraînement
-    running_loss = 0.0
-
-    for inputs, labels in train_loader:
-        inputs, labels = inputs.to(device), labels.to(device)
-
-        # Zero the parameter gradients
-        optimizer.zero_grad()
-
-        # Forward pass
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-
-        # Backward pass and optimization
-        loss.backward()
-        optimizer.step()
-
-        running_loss += loss.item()
-
-    # Print average training loss for the epoch
-    print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss/len(train_loader)}")
-
-    # Validation
-    model.eval()  # Set the model to evaluation mode
-    val_loss = 0.0
-    correct = 0
-    total = 0
-
-    with torch.no_grad():
-        for inputs, labels in val_loader:
-            inputs, labels = inputs.to(device), labels.to(device)
-
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-
-            val_loss += loss.item()
-
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    # Print validation accuracy and loss
-    print(f"Validation Loss: {val_loss/len(val_loader)}, Validation Accuracy: {100*correct/total}%")
-
-print("Training finished")
+    def capture_last_conv_gradients(self):
+        return self.last_conv_layer
