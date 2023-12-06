@@ -1,0 +1,200 @@
+import torch
+import torch.nn as nn
+import torchvision.transforms as transforms
+from torch.utils.data import Dataset, DataLoader, Subset, random_split
+from datasets import load_dataset
+from PIL import Image
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torchvision.transforms as transforms
+from torch.utils.data import Dataset, DataLoader, Subset, random_split
+from datasets import load_dataset
+from PIL import Image
+from tqdm import tqdm
+import time
+import matplotlib.pyplot as plt
+import torchvision
+import torchvision.models as models
+import torch
+import torch.nn as nn
+from torchsummary import summary
+import cv2  
+
+
+class AffectNetHqDataset(Dataset):
+    def __init__(self, dataset, transform=None):
+        # 'dataset' is now a subset of the original dataset
+        self.dataset = dataset
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, idx):
+        item = self.dataset[idx]
+        image = item['image']
+        label = item['label']
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
+
+import torch
+import torch.nn as nn
+
+class PrivilegedAttributionLoss(nn.Module):
+    def __init__(self):
+        super(PrivilegedAttributionLoss, self).__init__()
+
+    def forward(self, attribution_maps, prior_maps):
+        """
+        Compute the Privileged Attribution Loss (PAL).
+
+        Args:
+            attribution_maps (torch.Tensor): Attribution maps (a_l) from your model.
+            prior_maps (torch.Tensor): Prior maps (a*) that highlight certain regions.
+
+        Returns:
+            torch.Tensor: PAL loss value.
+        """
+        # Calculate mean and standard deviation of attribution maps (a_l)
+        mean_al = torch.mean(attribution_maps)
+        std_al = torch.std(attribution_maps)
+
+        # Calculate the PAL loss as described in the provided text
+        pal_loss = -torch.sum((attribution_maps - mean_al) / std_al * prior_maps)
+
+        return pal_loss
+
+# Load the full dataset
+full_dataset = load_dataset("Piro17/affectnethq", split='train')
+
+# Split the dataset into train and test subsets
+train_size = int(0.01 * len(full_dataset))
+test_size = len(full_dataset) - train_size
+train_subset, test_subset = random_split(full_dataset, [train_size, test_size])
+
+# Define transformations
+train_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.RandomRotation((-10, 10)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+])
+
+test_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+
+# Create the dataset and dataloader using the subsets
+train_dataset = AffectNetHqDataset(Subset(full_dataset, train_subset.indices), transform=train_transform)
+test_dataset = AffectNetHqDataset(Subset(full_dataset, test_subset.indices), transform=test_transform)
+
+train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
+
+
+# Charger le modèle pré-entraîné VGG16
+base_model = torchvision.models.vgg16(pretrained=True)
+# Supprimer la dernière couche entièrement connectée
+base_model.classifier = nn.Sequential(*list(base_model.classifier.children())[:-1])
+
+# Ajouter une nouvelle couche adaptée à 7 classes
+num_classes = 7
+classifier_layer = nn.Linear(4096, num_classes)
+model = nn.Sequential(base_model, classifier_layer)
+
+# Afficher la structure du modèle
+summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
+
+
+# Identifier la dernière couche de convolution
+last_conv_layer = model[0].features[28]
+print(last_conv_layer)
+optimizer = optim.Adam(model.parameters(), lr=4e-5)
+
+# Fonction pour enregistrer le gradient
+def save_gradient(grad):
+    global conv_output_gradient
+    conv_output_gradient = grad
+
+# Attacher un hook pour enregistrer le gradient
+last_conv_layer.register_backward_hook(lambda module, grad_in, grad_out: save_gradient(grad_out[0]))
+num_epochs = 5
+
+for epoch in range(num_epochs):
+    model.train()
+    running_loss = 0.0
+    for images, labels in tqdm(train_loader):
+        optimizer.zero_grad()
+        
+        # Ensure that images require gradients
+        images.requires_grad_()
+        
+        # Keep labels as integers
+        labels = labels.long()
+        
+        outputs = model(images)
+
+        # Calculate the gradient of the output with respect to the input
+        grad_output = torch.ones(outputs.size(), requires_grad=True)  # Set requires_grad=True
+        input_grad = torch.autograd.grad(outputs, images, grad_outputs=grad_output, retain_graph=True)[0]
+
+        # Calculate the gradient times the input
+        grad_times_input = input_grad * images
+        # Define your attribution maps (a_l) and prior maps (a*) as torch Tensors
+        attribution_maps = grad_times_input  
+        prior_maps = torch.tensor(images)         
+
+        # Create an instance of the PrivilegedAttributionLoss
+        pal_loss_fn = PrivilegedAttributionLoss()
+
+        # Calculate the PAL loss
+        pal_loss = pal_loss_fn(attribution_maps, prior_maps)
+        classification_loss = 0
+        # Add the PAL loss to your total loss (cross-entropy or other)
+        total_loss = classification_loss + pal_loss
+
+        if epoch == 0 :
+            import matplotlib.pyplot as plt
+            import numpy as np
+
+            # Assuming grad_times_input is a torch.Tensor and images is a tensor
+            grad_times_input_np = grad_times_input[0].cpu().detach().numpy()  # Convert to NumPy array
+            grad_times_input_rescaled = (grad_times_input_np - grad_times_input_np.min()) / (grad_times_input_np.max() - grad_times_input_np.min())  # Rescale to [0, 1]
+
+            # Convert the original tensor (images) to a NumPy array for visualization
+            original_image_np = images[0].permute(1, 2, 0).cpu().detach().numpy()
+
+            # Create a figure with two subplots
+            fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+            # Display the original image on the first subplot
+            axes[0].imshow(original_image_np)
+            axes[0].axis('off')
+            axes[0].set_title('Original Image')
+
+            # Display the gradient input as an image on the second subplot
+            axes[1].imshow(grad_times_input_rescaled.transpose(1, 2, 0))  # Transpose dimensions if needed
+            axes[1].axis('off')
+            axes[1].set_title('Gradient Input')
+
+            plt.tight_layout()
+            plt.show()
+
+model.eval()
+with torch.no_grad():
+    correct = 0
+    total = 0
+    for images, labels in test_loader:
+        outputs = model(images)
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+    print(f'Accuracy on the test set: {100 * correct / total}%')
