@@ -26,7 +26,7 @@ def detect_landmarks(image):
 
     # Initialize the dlib face detector and facial landmarks predictor
     detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+    predictor = dlib.shape_predictor("./utils/shape_predictor_68_face_landmarks.dat")
 
     # Detect faces in the image
     faces = detector(image_rgb)
@@ -142,7 +142,6 @@ model = nn.Sequential(base_model, classifier_layer)
 
 # Afficher la structure du modèle
 summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
-
 
 # Identifier la dernière couche de convolution
 last_conv_layer = model[0].features[28]
