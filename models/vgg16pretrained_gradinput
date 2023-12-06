@@ -1,29 +1,20 @@
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
-from torch.utils.data import Dataset, DataLoader, Subset, random_split
-from datasets import load_dataset
-from PIL import Image
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch
-import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
+import torchvision
+import torchvision.models as models
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader, Subset, random_split
 from datasets import load_dataset
+from torchsummary import summary
+
+import matplotlib.pyplot as plt
+import numpy as np
 from PIL import Image
 from tqdm import tqdm
 import time
-import matplotlib.pyplot as plt
-import torchvision
-import torchvision.models as models
-import torch
-import torch.nn as nn
-from torchsummary import summary
 import cv2  
-
 
 class AffectNetHqDataset(Dataset):
     def __init__(self, dataset, transform=None):
@@ -43,9 +34,6 @@ class AffectNetHqDataset(Dataset):
             image = self.transform(image)
 
         return image, label
-
-import torch
-import torch.nn as nn
 
 class PrivilegedAttributionLoss(nn.Module):
     def __init__(self):
@@ -162,8 +150,6 @@ for epoch in range(num_epochs):
         total_loss = classification_loss + pal_loss
 
         if epoch == 0 :
-            import matplotlib.pyplot as plt
-            import numpy as np
 
             # Assuming grad_times_input is a torch.Tensor and images is a tensor
             grad_times_input_np = grad_times_input[0].cpu().detach().numpy()  # Convert to NumPy array

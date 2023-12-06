@@ -6,7 +6,8 @@ from datasets import load_dataset
 from torch.utils.data import Dataset, DataLoader, Subset, random_split
 from PIL import Image
 from gradcam import GradCAM  # Assurez-vous d'avoir le module GradCAM approprié installé
-import numpy as np 
+import numpy as np
+
 class AffectNetHqDataset(Dataset):
     def __init__(self, dataset, transform=None):
         self.dataset = dataset
