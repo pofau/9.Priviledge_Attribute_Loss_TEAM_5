@@ -44,15 +44,7 @@ class RAFDBDataset(Dataset):
 
         return image, label
 
-
-train_transform = transforms.Compose([
-    transforms.RandomRotation(degrees=(-10, 10)),
-    transforms.RandomHorizontalFlip(),
-    transforms.Resize((224, 224)),  # Resize to 224x224
-    transforms.ToTensor(),
-])
-
-# Transform function for test data
+# Transform only to tensor because images are already aligned in the dataset
 transform = transforms.Compose([
 
     transforms.ToTensor(),
