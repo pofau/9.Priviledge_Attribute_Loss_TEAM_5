@@ -1,0 +1,47 @@
+import torch.nn.functional as F
+
+# Choisissez la classe de sortie à analyser
+class_id = ... # ID de la classe
+
+# Hook pour capturer les activations et gradients
+activations = []
+def forward_hook(module, input, output):
+    activations.append(output)
+
+def backward_hook(module, grad_input, grad_output):
+    global gradients
+    gradients = grad_output[0]
+
+last_conv_layer = model.features[-1]
+last_conv_layer.register_forward_hook(forward_hook)
+last_conv_layer.register_backward_hook(backward_hook)
+
+# Boucle d'entraînement (simplifiée pour Grad-CAM)
+model.eval() # Mode d'évaluation pour le calcul de Grad-CAM
+for images, labels in train_loader:
+    outputs = model(images)
+
+    # Calculer la loss pour la classe spécifique
+    one_hot_output = torch.zeros(outputs.size())
+    one_hot_output[0, class_id] = 1
+
+    model.zero_grad()
+    outputs.backward(gradient=one_hot_output, retain_graph=True)
+
+    # Calcul des poids pour les cartes de caractéristiques
+    pooled_gradients = torch.mean(gradients, [0, 2, 3])
+    
+    # Application des poids sur les activations et sommation
+    for i in range(len(activations)):
+        activations[i] *= pooled_gradients[i]
+
+    heatmap = torch.mean(activations, dim=1).squeeze()
+    heatmap = F.relu(heatmap)
+    heatmap /= torch.max(heatmap)
+
+    # Visualiser la heatmap, etc.
+    # ...
+
+    # Nettoyer pour le prochain lot
+    activations = []
+    gradients = None
