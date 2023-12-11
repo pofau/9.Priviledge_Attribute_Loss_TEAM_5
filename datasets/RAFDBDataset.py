@@ -66,8 +66,8 @@ label_dir = '../datasets/RAF-DB/Image/aligned/'
 
 
 # Assuming you have already defined full_dataset, train_subset, and test_subset
-train_dataset = RAFDBDataset(root_dir="C:\Users\MCE30\Desktop\SAR\M2 SAR\MLA\Projet\RAF-DB\Image\aligned\train", label_dir = r'C:\Users\MCE30\Desktop\SAR\M2 SAR\MLA\Projet\RAF-DB\Image\aligned', transform=train_transform)
-test_dataset = RAFDBDataset(root_dir=r'C:\Users\MCE30\Desktop\SAR\M2 SAR\MLA\Projet\RAF-DB\Image\aligned\test', label_dir = r'C:\Users\MCE30\Desktop\SAR\M2 SAR\MLA\Projet\RAF-DB\Image\aligned\list_partition_label.txt',transform=test_transform)
+train_dataset = RAFDBDataset(root_dir=root_dir, label_dir = label_dir)
+test_dataset = RAFDBDataset(root_dir=root_dir, label_dir = label_dir)
 
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
