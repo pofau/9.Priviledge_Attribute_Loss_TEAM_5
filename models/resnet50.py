@@ -1,40 +1,51 @@
-
 import torchvision.models as models
-import torch
+import torchvision
 import torch.nn as nn
+from torchsummary import summary
 import torch.optim as optim
 
-# L'optimiseur
-learning_rate = 5e-5
+class CustomResNet(nn.Module):
+    def __init__(self, num_classes=7):
+        super(CustomResNet, self).__init__()
+        # Charger le modèle pré-entraîné ResNet50
+        base_model = torchvision.models.resnet50(pretrained=True)
+        # Supprimer la dernière couche entièrement connectée (fc)
+        self.features = nn.Sequential(*list(base_model.children())[:-1])
+        # Ajouter une nouvelle couche adaptée à num_classes
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(2048, num_classes)
+        )
+        # Ajouter le hook sur la dernière couche de convolution
+        self.gradients = None  # Stocke les gradients de la dernière couche de convolution
+        self._add_conv_hook()
 
-# Époque :
-num_epochs = 75  # Assurez-vous que cette variable est nommée correctement
+    def _add_conv_hook(self):
+        # ... [méthode pour ajouter un hook à la dernière couche de convolution]
+        last_conv_layer = list(self.features.children())[-3][2].conv3
+        last_conv_layer.register_full_backward_hook(self._hook_fn)
 
-# Modèle ResNet50 pré-entraîné
-model = models.resnet50(pretrained=True)
+    def _hook_fn(self, module, grad_input, grad_output):
+        # Enregistre les gradients de la dernière couche de convolution
+        self.gradients = grad_output[0]
 
-num_classes = 6  # AffectNet a 6 classes d'émotions
-model.fc = nn.Linear(model.fc.in_features, num_classes)
+    def get_activations_gradient(self):
+        # Renvoie les gradients enregistrés
+        return self.gradients
 
-# Définir l'optimiseur et la fonction de perte
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-criterion = nn.CrossEntropyLoss()  
+    def forward(self, x):
+        x = self.features(x)
+        x = self.classifier(x)
+        return x
 
-#Boucle d'entraînelent
-for epoch in range(num_epochs):
-    for images, labels in data_loader:
-        optimizer.zero_grad()
-        
-        outputs = model(images)
 
-        # Calcule la perte classique
-        loss = criterion(outputs, labels)
+# Utilisation de la classe
+num_classes = 7
+model = CustomResNet(num_classes)
 
-        # Pour l'instant, la perte PAL est mise à 0 car elle n'est pas encore implémentée
-        pal_loss_value = 0  # à créer
+# Afficher la structure du modèle
+summary(model, (3, 224, 224))
 
-        # Combinez les pertes
-        total_loss = loss + pal_loss_value
-
-        total_loss.backward()
-        optimizer.step()
+# Définir l'optimiseur
+learning_rate = 5e-5  # Assurez-vous de définir la valeur de learning_rate
+optimizer = optim.Adam(model.parameters(), learning_rate)
