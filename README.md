@@ -1,8 +1,10 @@
 # 9.Priviledge_Attribute_Loss_TEAM_5
 
-Organization of project : 
+The aim of this project is to reproduce the experimental results obtained in the research article **<a href = "https://arxiv.org/pdf/2203.12905.pdf">Privileged Attribution Constrained Deep Networks for Facial Expression Recognition</a>**.
 
-/datasets: Store or manage links to datasets 
+Project Organization : 
+
+/datasets: Store or manage links to datasets
 
 /models: Contains the different model architectures 
 
