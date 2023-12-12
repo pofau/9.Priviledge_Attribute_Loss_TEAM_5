@@ -1,6 +1,6 @@
 # 9.Priviledge_Attribute_Loss_TEAM_5
 
-Organisation du projet : 
+Organization of project : 
 
 /datasets: Store or manage links to datasets 
 
