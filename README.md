@@ -10,4 +10,6 @@ Organisation du projet :
 
 /experiments: Scripts or Jupyter notebooks for conducting various experiments.
 
+/ik : contains differents drafts
+
 /results: Save output like model weights, logs, and evaluation results here.
