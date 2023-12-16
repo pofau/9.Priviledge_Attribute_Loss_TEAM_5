@@ -37,48 +37,55 @@ input_shape = (224, 224)
 print("Veuillez choisir la base de données:")
 print("0 - RAFDB")
 print("1 - Affectnet")
+# Demander à l'utilisateur d'entrer son choix et le convertir en entier
+x = int(input("Entrez votre choix (0 ou 1) : "))
+if x == 0:
+            dataset = RAFDBDataset()
+            # Transform only to tensor because images are already aligned in the dataset
+            transform = transforms.Compose([
 
-try:
-    # Demander à l'utilisateur d'entrer son choix et le convertir en entier
-    x = int(input("Entrez votre choix (0 ou 1) : "))
+                transforms.ToTensor(),
+            ])
 
-    if x == 0:
-        dataset = RAFDBDataset()
-        # Transform only to tensor because images are already aligned in the dataset
-        transform = transforms.Compose([
-
-            transforms.ToTensor(),
-        ])
-
-        root_dir = '../datasets/RAF-DB/Image/aligned/'
-        label_dir = '../datasets/RAF-DB/Image/aligned/labels'
+            root_dir = 'datasets/RAF-DB/Image/aligned/'
+            label_dir = 'datasets/RAF-DB/Image/aligned/labels'
 
 
-        # Assuming you have already defined full_dataset, train_subset, and test_subset
-        train_dataset = RAFDBDataset(root_dir=root_dir, label_dir = label_dir, subset = 'train', label_file_name='train_label.txt', transform=transform)
-        test_dataset = RAFDBDataset(root_dir=root_dir, label_dir = label_dir, subset = 'test', label_file_name='test_label.txt', transform=transform)
+            # Assuming you have already defined full_dataset, train_subset, and test_subset
+            train_dataset = RAFDBDataset(root_dir=root_dir, label_dir = label_dir, subset = 'train', label_file_name='train_label.txt', transform=transform)
+            test_dataset = RAFDBDataset(root_dir=root_dir, label_dir = label_dir, subset = 'test', label_file_name='test_label.txt', transform=transform)
 
-        train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
+            train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+            test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-        # Charger le modèle pré-entraîné VGG16
-        base_model = torchvision.models.vgg16(pretrained=True)
-        # Supprimer la dernière couche entièrement connectée
-        base_model.classifier = nn.Sequential(*list(base_model.classifier.children())[:-1])
+            # Charger le modèle pré-entraîné VGG16
+            base_model = torchvision.models.vgg16(pretrained=True)
+            # Supprimer la dernière couche entièrement connectée
+            base_model.classifier = nn.Sequential(*list(base_model.classifier.children())[:-1])
 
-        # Ajouter une nouvelle couche adaptée à 7 classes
-        num_classes = 7
-        classifier_layer = nn.Linear(4096, num_classes)
-        model = nn.Sequential(base_model, classifier_layer)
+            # Ajouter une nouvelle couche adaptée à 7 classes
+            num_classes = 7
+            classifier_layer = nn.Linear(4096, num_classes)
+            model = nn.Sequential(base_model, classifier_layer)
 
-        # Afficher la structure du modèle
-        summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
+            # Afficher la structure du modèle
+            summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
 
-        print("RAF-DB Dataset Loaded !")
+            # Identifier la dernière couche de convolution
+            last_conv_layer = model[0].features[28]
+            print(last_conv_layer)
+            optimizer = optim.Adam(model.parameters(), lr=4e-5)
 
-        print("Base de données RAFDB sélectionnée.")
-    elif x == 1:
-        # Load the full dataset
+            # Fonction pour enregistrer le gradient
+            def save_gradient(grad):
+                global conv_output_gradient
+                conv_output_gradient = grad
+
+            print("RAF-DB Dataset Loaded !")
+
+            print("Base de données RAFDB sélectionnée.")
+elif x == 1:
+            # Load the full dataset
         full_dataset = load_dataset("Piro17/affectnethq", split='train')
         
         # Split the dataset into train and test subsets
@@ -120,12 +127,9 @@ try:
         summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
         
         print("Base de données AffectNet sélectionnée.")
-    else:
-        print("Entrée invalide. Veuillez entrer 0 ou 1.")
-
-except ValueError:
-    # Gestion de l'exception si la conversion en entier échoue
-    print("Entrée invalide. Veuillez entrer un nombre.")
+else:
+            print("Entrée invalide. Veuillez entrer 0 ou 1.")
+            quit()
 
 # Attacher un hook pour enregistrer le gradient
 from matplotlib.colors import LinearSegmentedColormap
@@ -133,19 +137,13 @@ import torch
 from matplotlib.colors import LinearSegmentedColormap
 from tqdm import tqdm
 
-def adjust_learning_rate(optimizer, epoch, num_epochs, initial_lr, power):
-    """Ajuste le taux d'apprentissage selon une politique de décroissance polynomiale."""
-    lr = initial_lr * (1 - (epoch / num_epochs)) ** power
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-        
+optimizer = optim.Adam(model.parameters(), lr=4e-5)
 num_epochs = 10
 criterion = torch.nn.CrossEntropyLoss()
 loss_values = [] 
 accuracy_values = []  
 lr = 4e-5
 power = 5
-optimizer = optim.Adam(model.parameters(), lr=4e-5)
 
 def adjust_learning_rate(optimizer, epoch, num_epochs, initial_lr, power):
     """Ajuste le taux d'apprentissage selon une politique de décroissance polynomiale."""
@@ -246,7 +244,3 @@ plt.title("Accuracy en fonction de l'epoch")
 
 plt.tight_layout()  # Pour éviter que les titres se chevauchent
 plt.show()
-
-
-
-
