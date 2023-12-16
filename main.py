@@ -118,8 +118,7 @@ try:
         
         # Afficher la structure du modèle
         summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
-        optimizer = optim.Adam(model.parameters(), lr=4e-5)
-
+        
         print("Base de données AffectNet sélectionnée.")
     else:
         print("Entrée invalide. Veuillez entrer 0 ou 1.")
@@ -134,12 +133,19 @@ import torch
 from matplotlib.colors import LinearSegmentedColormap
 from tqdm import tqdm
 
+def adjust_learning_rate(optimizer, epoch, num_epochs, initial_lr, power):
+    """Ajuste le taux d'apprentissage selon une politique de décroissance polynomiale."""
+    lr = initial_lr * (1 - (epoch / num_epochs)) ** power
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+        
 num_epochs = 10
 criterion = torch.nn.CrossEntropyLoss()
 loss_values = [] 
 accuracy_values = []  
 lr = 4e-5
 power = 5
+optimizer = optim.Adam(model.parameters(), lr=4e-5)
 
 def adjust_learning_rate(optimizer, epoch, num_epochs, initial_lr, power):
     """Ajuste le taux d'apprentissage selon une politique de décroissance polynomiale."""
