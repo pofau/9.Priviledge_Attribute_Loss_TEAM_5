@@ -1,10 +1,7 @@
-# Import
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
-import torchvision.models as models
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader, Subset, random_split
 from torchsummary import summary
@@ -14,45 +11,9 @@ from PIL import Image
 from tqdm import tqdm
 import time
 import cv2
-import numpy as np
-import matplotlib.pyplot as plt
 import os
 import random
 import glob
-from PIL import Image
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torchvision
-import torchvision.transforms as transforms
-from torchvision import models
-from torch.utils.data import Dataset, DataLoader
-from torchsummary import summary
-from tqdm.auto import tqdm
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-import face_recognition
-import os
-import random
-from matplotlib.colors import LinearSegmentedColormap
-import os
-import random
-import time
-import glob
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-from PIL import Image
-from tqdm import tqdm, auto
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torchvision
-import torchvision.transforms as transforms
-import torchvision.models as models
-from torch.utils.data import Dataset, DataLoader, Subset, random_split
-from torchsummary import summary
 import face_recognition
 from matplotlib.colors import LinearSegmentedColormap
 from datasets.AffectnetDataset import AffectNetHqDataset
@@ -62,10 +23,6 @@ from models.resnet50 import CustomResNet
 from models.VGG16 import AffectNetClassifier
 from utils.heatmap import *
 from utils.plot_element import *
-from matplotlib.colors import LinearSegmentedColormap
-import torch
-from matplotlib.colors import LinearSegmentedColormap
-from tqdm import tqdm
 
 # Define the number of epochs
 num_epochs = 20
