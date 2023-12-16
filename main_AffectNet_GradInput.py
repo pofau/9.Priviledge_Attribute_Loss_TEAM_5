@@ -1,3 +1,4 @@
+# Import necessary libraries
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -31,28 +32,28 @@ batch_size = 16
 # Define the input shape
 input_shape = (224, 224)
 
-# Définir les transformations
+# Define transformations
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
 ])
 
-# Créer le dataset et le dataloader
+# Create the dataset and dataloader
 affectnet_dataset = AffectNetHqDataset(transform=transform)
 data_loader = DataLoader(affectnet_dataset, batch_size=16, shuffle=False)
 
-# Charger le modèle pré-entraîné VGG16
+# Load the pretrained VGG16 model
 base_model = torchvision.models.vgg16(pretrained=True)
-# Supprimer la dernière couche entièrement connectée
+# Remove the last fully connected layer
 base_model.classifier = nn.Sequential(*list(base_model.classifier.children())[:-1])
 
-# Ajouter une nouvelle couche adaptée à 7 classes
+# Add a new layer suitable for 7 classes
 num_classes = 7
 classifier_layer = nn.Linear(4096, num_classes)
 model = nn.Sequential(base_model, classifier_layer)
 
-# Afficher la structure du modèle
-summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
+# Display the model structure
+summary(model, (3, 224, 224))  # Make sure to adjust the dimensions according to your data
 
 optimizer = optim.Adam(model.parameters(), lr=4e-5)
 num_epochs = 10
@@ -63,14 +64,13 @@ lr = 4e-5
 power = 5
 
 def adjust_learning_rate(optimizer, epoch, num_epochs, initial_lr, power):
-    """Ajuste le taux d'apprentissage selon une politique de décroissance polynomiale."""
+    """Adjust the learning rate according to a polynomial decay policy."""
     lr = initial_lr * (1 - (epoch / num_epochs)) ** power
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-
 for epoch in range(num_epochs):
-    adjust_learning_rate(optimizer, epoch, num_epochs, lr, power)  # Mise à jour du taux d'apprentissage
+    adjust_learning_rate(optimizer, epoch, num_epochs, lr, power)  # Update the learning rate
     model.train()
     running_loss = 0.0
     running_pal_loss = 0.0
@@ -78,17 +78,17 @@ for epoch in range(num_epochs):
     total_samples = 0.0
     for images, labels in tqdm(train_loader):
         
-        # Initialiser un tenseur pour stocker toutes les heatmaps
+        # Initialize a tensor to store all the heatmaps
         batch_heatmaps = generate_batch_heatmaps(images, heatmap_generator)
             
-         # Ensure that images require gradients
+        # Ensure that images require gradients
         images.requires_grad_()
 
-         # Forward pass
+        # Forward pass
         outputs = model(images)
         labels = labels.long()
 
-        # Calcul de la classification loss
+        # Calculate the classification loss
         classification_loss = criterion(outputs, labels)
 
         # Backward pass for gradients with respect to the input images
@@ -102,62 +102,59 @@ for epoch in range(num_epochs):
         pal_loss_fn = PrivilegedAttributionLoss()
         pal_loss = pal_loss_fn(attribution_maps, batch_heatmaps)
 
-        # Calcul de la PAL loss et de la classification loss
+        # Calculate the PAL loss and classification loss
         total_loss = classification_loss + pal_loss
 
-        # Backpropagation et optimisation
+        # Backpropagation and optimization
         optimizer.zero_grad()  # Clear gradients before the backward pass
         total_loss.backward()
         optimizer.step()
 
-        # Mise à jour des running loss et PAL loss
+        # Update running loss and PAL loss
         running_loss += classification_loss.item()
         running_pal_loss += pal_loss.item()         
 
-        #if epoch == 0:
-         #   plot_element(images, batch_heatmaps, attribution_maps, gradients, 0)
-
-        # Mise à jour des running loss et PAL loss
+        # Update running loss and PAL loss
         running_loss += classification_loss.item()
         running_pal_loss += pal_loss.item()
 
-        # Calcul de l'accuracy
+        # Calculate accuracy
         _, preds = torch.max(outputs, 1)
         running_corrects += torch.sum(preds == labels.data)
         total_samples += labels.size(0)
 
-    # Calcul des moyennes pour l'époque
+    # Calculate averages for the epoch
     epoch_loss = running_loss / len(train_loader)
     epoch_pal_loss = running_pal_loss / len(train_loader)
     epoch_acc = running_corrects.double() / total_samples
 
-    # Ajouter les valeurs moyennes aux listes
+    # Add the average values to the lists
     loss_values.append(epoch_loss)
     accuracy_values.append(epoch_acc)
 
-    # Affichage des résultats pour l'époque
+    # Display results for the epoch
     print(f'Epoch {epoch}/{num_epochs - 1}')
     print(f'Loss: {epoch_loss:.4f}, PAL Loss: {epoch_pal_loss:.4f}, Accuracy: {epoch_acc:.4f}')
 
 import matplotlib.pyplot as plt
 
-# Liste de longueurs de vecteur que vous souhaitez utiliser
+# List of vector lengths you want to use
 vector_lengths = np.linspace(0, len(loss_values), len(loss_values))
 
-# Plot de la perte en fonction de la longueur du vecteur
+# Plot the loss as a function of vector length
 plt.figure(figsize=(10, 5))
 plt.subplot(1, 2, 1)
 plt.plot(vector_lengths, loss_values, marker='o', linestyle='-')
 plt.xlabel('Epoch')
-plt.ylabel('Perte')
-plt.title("Loss en fonction de l'epoch")
+plt.ylabel('Loss')
+plt.title("Loss vs Epoch")
 
-# Plot de la précision en fonction de la longueur du vecteur
+# Plot accuracy as a function of vector length
 plt.subplot(1, 2, 2)
 plt.plot(vector_lengths, accuracy_values, marker='o', linestyle='-')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
-plt.title("Accuracy en fonction de l'epoch")
+plt.title("Accuracy vs Epoch")
 
-plt.tight_layout()  # Pour éviter que les titres se chevauchent
+plt.tight_layout()  # To avoid overlapping titles
 plt.show()
