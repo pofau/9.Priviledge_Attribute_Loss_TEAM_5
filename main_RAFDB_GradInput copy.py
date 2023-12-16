@@ -8,8 +8,6 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-
-# Third-party imports
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -17,20 +15,12 @@ import torchvision
 from torchvision import models, transforms
 from torch.utils.data import DataLoader, Subset, random_split
 from torchsummary import summary
-
-# Local application imports
 from datasets.AffectnetDataset import AffectNetHqDataset
 from datasets.RAFDBDataset import RAFDBDataset
 from models.pal import PrivilegedAttributionLoss
 from utils.heatmap import generate_batch_heatmaps
-# Other local imports as needed
+from datasets import load_dataset
 
-# Attempt to import load_dataset function
-try:
-    from datasets import load_dataset
-except ImportError:
-    print("The function 'load_dataset' cannot be found. Please ensure it is defined in the 'datasets' module.")
-    exit()
 
 # Define the number of epochs
 num_epochs = 20
