@@ -74,24 +74,51 @@ try:
         # Afficher la structure du modèle
         summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
 
-        # Identifier la dernière couche de convolution
-        last_conv_layer = model[0].features[28]
-        print(last_conv_layer)
-        optimizer = optim.Adam(model.parameters(), lr=4e-5)
-
-        # Fonction pour enregistrer le gradient
-        def save_gradient(grad):
-            global conv_output_gradient
-            conv_output_gradient = grad
-
         print("RAF-DB Dataset Loaded !")
 
         print("Base de données RAFDB sélectionnée.")
     elif x == 1:
-        dataset = AffectNetHqDataset(split='train')
-        # Créer le dataset et le dataloader
-        affectnet_dataset = AffectNetHqDataset(transform=transform)
-        data_loader = DataLoader(affectnet_dataset, batch_size=16, shuffle=False)
+        # Load the full dataset
+        full_dataset = load_dataset("Piro17/affectnethq", split='train')
+        
+        # Split the dataset into train and test subsets
+        train_size = int(0.5 * len(full_dataset))
+        test_size = len(full_dataset) - train_size
+        train_subset, test_subset = random_split(full_dataset, [train_size, test_size])
+        
+        # Define transformations
+        train_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.RandomRotation((-10, 10)),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+        ])
+        
+        test_transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+        ])
+        
+        # Create the dataset and dataloader using the subsets
+        train_dataset = AffectNetHqDataset(Subset(full_dataset, train_subset.indices), transform=train_transform)
+        test_dataset = AffectNetHqDataset(Subset(full_dataset, test_subset.indices), transform=test_transform)
+        
+        train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
+        
+        # Charger le modèle pré-entraîné VGG16
+        base_model = torchvision.models.vgg16(pretrained=True)
+        # Supprimer la dernière couche entièrement connectée
+        base_model.classifier = nn.Sequential(*list(base_model.classifier.children())[:-1])
+        
+        # Ajouter une nouvelle couche adaptée à 7 classes
+        num_classes = 7
+        classifier_layer = nn.Linear(4096, num_classes)
+        model = nn.Sequential(base_model, classifier_layer)
+        
+        # Afficher la structure du modèle
+        summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
+        optimizer = optim.Adam(model.parameters(), lr=4e-5)
 
         print("Base de données AffectNet sélectionnée.")
     else:
