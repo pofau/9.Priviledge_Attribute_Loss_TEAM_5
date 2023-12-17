@@ -7,30 +7,30 @@ import torch.optim as optim
 class CustomResNet(nn.Module):
     def __init__(self, num_classes=7):
         super(CustomResNet, self).__init__()
-        # Charger le modèle pré-entraîné ResNet50
+        # Load the pretrained ResNet50 model
         base_model = torchvision.models.resnet50(pretrained=True)
-        # Supprimer la dernière couche entièrement connectée (fc)
+        # Remove the last fully connected layer (fc)
         self.features = nn.Sequential(*list(base_model.children())[:-1])
-        # Ajouter une nouvelle couche adaptée à num_classes
+        # Add a new layer adapted to num_classes
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Linear(2048, num_classes)
         )
-        # Ajouter le hook sur la dernière couche de convolution
-        self.gradients = None  # Stocke les gradients de la dernière couche de convolution
+        # Add hook to the last convolutional layer
+        self.gradients = None  # Stores the gradients of the last convolutional layer
         self._add_conv_hook()
 
     def _add_conv_hook(self):
-        # ... [méthode pour ajouter un hook à la dernière couche de convolution]
+        # ... [method to add a hook to the last convolutional layer]
         last_conv_layer = list(self.features.children())[-3][2].conv3
         last_conv_layer.register_full_backward_hook(self._hook_fn)
 
     def _hook_fn(self, module, grad_input, grad_output):
-        # Enregistre les gradients de la dernière couche de convolution
+        # Stores the gradients of the last convolutional layer
         self.gradients = grad_output[0]
 
     def get_activations_gradient(self):
-        # Renvoie les gradients enregistrés
+        # Returns the stored gradients
         return self.gradients
 
     def forward(self, x):
@@ -38,14 +38,14 @@ class CustomResNet(nn.Module):
         x = self.classifier(x)
         return x
 
+if __name__ == '__main__':
+    # Using the class
+    num_classes = 7
+    model = CustomResNet(num_classes)
 
-# Utilisation de la classe
-num_classes = 7
-model = CustomResNet(num_classes)
+    # Display the model structure
+    summary(model, (3, 224, 224))
 
-# Afficher la structure du modèle
-summary(model, (3, 224, 224))
-
-# Définir l'optimiseur
-learning_rate = 5e-5  # Assurez-vous de définir la valeur de learning_rate
-optimizer = optim.Adam(model.parameters(), learning_rate)
+    # Define the optimizer
+    learning_rate = 5e-5  # Make sure to set the learning_rate value
+    optimizer = optim.Adam(model.parameters(), learning_rate)
