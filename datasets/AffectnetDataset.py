@@ -20,13 +20,16 @@ class AffectNetHqDataset(Dataset):
 
         return image, label
 
+if __name__ == '__main__':
 
-# Définir les transformations
-transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-])
+    # Define the transformation to apply to the data
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+    ])
 
-# Créer le dataset et le dataloader
-affectnet_dataset = AffectNetHqDataset(transform=transform)
-data_loader = DataLoader(affectnet_dataset, batch_size=16, shuffle=False)
+    # Create the dataset
+    affectnet_dataset = AffectNetHqDataset(transform=transform)
+    data_loader = DataLoader(affectnet_dataset, batch_size=16, shuffle=False)
+
+
