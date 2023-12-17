@@ -1,2 +1,2 @@
 from .heatmap import *
-from .utils import *
+from .plot_element import *
