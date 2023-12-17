@@ -20,8 +20,10 @@ class PrivilegedAttributionLoss(nn.Module):
         prior_maps = torch.where(torch.isnan(prior_maps), torch.zeros_like(prior_maps), prior_maps)
 
         # Calculate the PAL loss
-        # Ensure that the broadcasting in the subtraction and division is correct
         pal_loss = -torch.sum((attribution_maps - mean_al) / std_al * prior_maps, dim=[1, 2, 3])
 
         # Return the mean loss over the batch
         return torch.mean(pal_loss)
+
+if __name__ == '__main__':
+    pass
