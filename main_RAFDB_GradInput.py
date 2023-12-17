@@ -1,25 +1,31 @@
 # Standard library imports
+import glob
 import os
 import random
 import time
-import glob
+
+# Third-party imports
 from PIL import Image
-import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from tqdm import tqdm
+import numpy as np
 import torch
+from torch.utils.data import DataLoader, Subset, random_split
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
 from torchvision import models, transforms
-from torch.utils.data import DataLoader, Subset, random_split
 from torchsummary import summary
+from tqdm import tqdm
+
+# Local application/library specific imports
 from datasets.AffectnetDataset import AffectNetHqDataset
 from datasets.RAFDBDataset import RAFDBDataset
 from models.pal import PrivilegedAttributionLoss
-from utils.heatmap import generate_batch_heatmaps
-from datasets import load_dataset
+from models.resnet50 import CustomResNet
+from models.VGG16 import AffectNetClassifier
+from utils.heatmap import *
+from utils.plot_element import *
 
 # Define the number of epochs
 num_epochs = 20
@@ -170,20 +176,3 @@ plt.title("Accuracy vs Epoch")
 
 plt.tight_layout()  # To avoid overlapping titles
 plt.show()
-
-model.eval()  # Mettre le modèle en mode évaluation
-test_running_corrects = 0.0
-test_total_samples = 0.0
-
-with torch.no_grad():  # Désactive le calcul du gradient
-        for test_images, test_labels in tqdm(test_loader):
-            test_outputs = model(test_images)
-            _, test_preds = torch.max(test_outputs, 1)
-            test_running_corrects += torch.sum(test_preds == test_labels.data)
-            test_total_samples += test_labels.size(0)
-# Calcul de l'accuracy de test pour l'époque
-test_epoch_acc = test_running_corrects.double() / test_total_samples
-test_accuracy_values.append(test_epoch_acc)
-
-# Afficher les résultats de test pour l'époque
-print(f'Test Accuracy: {test_epoch_acc:.4f}')
