@@ -44,45 +44,48 @@ class RAFDBDataset(Dataset):
 
         return image, label
 
-# Transform only to tensor because images are already aligned in the dataset
-transform = transforms.Compose([
+if __name__ == '__main__':
 
-    transforms.ToTensor(),
-])
+    # Transform only to tensor because images are already aligned in the dataset
+    transform = transforms.Compose([
 
-root_dir = '../datasets/RAF-DB/Image/aligned/'
-label_dir = '../datasets/RAF-DB/Image/aligned/labels'
+        transforms.ToTensor(),
+    ])
+
+    root_dir = '../datasets/RAF-DB/Image/aligned/'
+    label_dir = '../datasets/RAF-DB/Image/aligned/labels'
 
 
 
-# Assuming you have already defined full_dataset, train_subset, and test_subset
-train_dataset = RAFDBDataset(root_dir=root_dir, label_dir = label_dir, subset = 'train', label_file_name='train_label.txt', transform=transform)
-test_dataset = RAFDBDataset(root_dir=root_dir, label_dir = label_dir, subset = 'test', label_file_name='test_label.txt', transform=transform)
+    # Assuming you have already defined full_dataset, train_subset, and test_subset
+    train_dataset = RAFDBDataset(root_dir=root_dir, label_dir=label_dir, subset='train', label_file_name='train_label.txt', transform=transform)
+    test_dataset = RAFDBDataset(root_dir=root_dir, label_dir=label_dir, subset='test', label_file_name='test_label.txt', transform=transform)
 
-train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-# Charger le modèle pré-entraîné VGG16
-base_model = torchvision.models.vgg16(pretrained=True)
-# Supprimer la dernière couche entièrement connectée
-base_model.classifier = nn.Sequential(*list(base_model.classifier.children())[:-1])
+    # Load the pretrained VGG16 model
+    base_model = torchvision.models.vgg16(pretrained=True)
+    # Remove the last fully connected layer
+    base_model.classifier = nn.Sequential(*list(base_model.classifier.children())[:-1])
 
-# Ajouter une nouvelle couche adaptée à 7 classes
-num_classes = 7
-classifier_layer = nn.Linear(4096, num_classes)
-model = nn.Sequential(base_model, classifier_layer)
+    # Add a new layer adapted to 7 classes
+    num_classes = 7
+    classifier_layer = nn.Linear(4096, num_classes)
+    model = nn.Sequential(base_model, classifier_layer)
 
-# Afficher la structure du modèle
-summary(model, (3, 224, 224))  # Assurez-vous d'ajuster les dimensions en fonction de vos données
+    # Display the model structure
+    summary(model, (3, 224, 224))  # Make sure to adjust the dimensions according to your data
 
-# Identifier la dernière couche de convolution
-last_conv_layer = model[0].features[28]
-print(last_conv_layer)
-optimizer = optim.Adam(model.parameters(), lr=4e-5)
+    # Identify the last convolutional layer
+    last_conv_layer = model[0].features[28]
+    print(last_conv_layer)
+    optimizer = optim.Adam(model.parameters(), lr=4e-5)
 
-# Fonction pour enregistrer le gradient
-def save_gradient(grad):
-    global conv_output_gradient
-    conv_output_gradient = grad
+    # Function to save the gradient
+    def save_gradient(grad):
+        global conv_output_gradient
+        conv_output_gradient = grad
 
-print("RAF-DB Dataset Loaded !")
+    print("RAF-DB Dataset Loaded!")
+
