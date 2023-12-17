@@ -170,3 +170,20 @@ plt.title("Accuracy vs Epoch")
 
 plt.tight_layout()  # To avoid overlapping titles
 plt.show()
+
+model.eval()  # Mettre le modèle en mode évaluation
+test_running_corrects = 0.0
+test_total_samples = 0.0
+
+with torch.no_grad():  # Désactive le calcul du gradient
+        for test_images, test_labels in tqdm(test_loader):
+            test_outputs = model(test_images)
+            _, test_preds = torch.max(test_outputs, 1)
+            test_running_corrects += torch.sum(test_preds == test_labels.data)
+            test_total_samples += test_labels.size(0)
+# Calcul de l'accuracy de test pour l'époque
+test_epoch_acc = test_running_corrects.double() / test_total_samples
+test_accuracy_values.append(test_epoch_acc)
+
+# Afficher les résultats de test pour l'époque
+print(f'Test Accuracy: {test_epoch_acc:.4f}')
